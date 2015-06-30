@@ -2,16 +2,17 @@ package gogitlab
 
 import (
 	"encoding/json"
+	"strconv"
 )
 
 const (
-	projects_url         = "/projects"                         // Get a list of projects owned by the authenticated user
-	projects_search_url  = "/projects/search/:query"           // Search for projects by name
-	project_url          = "/projects/:id"                     // Get a specific project, identified by project ID or NAME
-	project_url_events   = "/projects/:id/events"              // Get project events
-	project_url_branches = "/projects/:id/repository/branches" // Lists all branches of a project
-	project_url_members  = "/projects/:id/members"             // List project team members
-	project_url_member   = "/projects/:id/members/:user_id"    // Get project team member
+	projects_url         = "/projects?page=:page&per_page=:per_page" // Get a list of projects owned by the authenticated user
+	projects_search_url  = "/projects/search/:query"                 // Search for projects by name
+	project_url          = "/projects/:id"                           // Get a specific project, identified by project ID or NAME
+	project_url_events   = "/projects/:id/events"                    // Get project events
+	project_url_branches = "/projects/:id/repository/branches"       // Lists all branches of a project
+	project_url_members  = "/projects/:id/members"                   // List project team members
+	project_url_member   = "/projects/:id/members/:user_id"          // Get project team member
 )
 
 type Member struct {
@@ -58,17 +59,26 @@ type Project struct {
 Get a list of projects owned by the authenticated user.
 */
 func (g *Gitlab) Projects() ([]*Project, error) {
-
-	url := g.ResourceUrl(projects_url, nil)
-
-	var projects []*Project
-
-	contents, err := g.buildAndExecRequest("GET", url, nil)
-	if err == nil {
+	page := 1
+	var allProjects []*Project
+	for {
+		url := g.ResourceUrl(projects_url, map[string]string{":page": strconv.Itoa(page), ":per_page": strconv.Itoa(100)})
+		var projects []*Project
+		contents, err := g.buildAndExecRequest("GET", url, nil)
+		if err != nil {
+			return projects, err
+		}
 		err = json.Unmarshal(contents, &projects)
+		if err != nil {
+			return projects, err
+		}
+		if len(projects) == 0 {
+			break
+		}
+		allProjects = append(allProjects, projects...)
+		page += 1
 	}
-
-	return projects, err
+	return allProjects, nil
 }
 
 /*
